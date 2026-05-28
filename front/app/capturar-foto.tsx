@@ -7,7 +7,7 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 const DRAFT_PHOTO_KEY = '@ruasegura:draft-photo-uri';
 
-export default function CameraScreen() {
+export default function CapturePhotoScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
@@ -89,7 +89,9 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
-    padding: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 36,
   },
   backButton: {
     alignItems: 'center',

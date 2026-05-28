@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function TabLayout() {
+export default function MainTabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
+
   return (
     <Tabs
       screenOptions={{
@@ -10,8 +14,8 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: {
           borderTopColor: '#D8E3DF',
-          height: 62,
-          paddingBottom: 8,
+          height: 54 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -20,20 +24,29 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="index"
+        name="registrar-avaria"
         options={{
-          title: 'Home',
+          title: 'Registrar',
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="home-outline" size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="registros"
+        name="meus-registros"
         options={{
           title: 'Registros',
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="list-outline" size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="mapa-detalhado"
+        options={{
+          title: 'Mapa detalhado',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="map-outline" size={size} />
           ),
         }}
       />

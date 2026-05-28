@@ -20,7 +20,7 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.01,
 };
 
-export default function MapScreen() {
+export default function ChooseLocationScreen() {
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -120,7 +120,9 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
-    padding: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 32,
   },
   topControls: {
     alignItems: 'flex-start',

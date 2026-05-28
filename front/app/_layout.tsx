@@ -1,8 +1,10 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -20,11 +22,28 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    async function hideAndroidNavigationBar() {
+      try {
+        await NavigationBar.setBehaviorAsync('overlay-swipe');
+        await NavigationBar.setVisibilityAsync('hidden');
+      } catch {
+        // Some Android navigation modes ignore programmatic visibility changes.
+      }
+    }
+
+    hideAndroidNavigationBar();
+  }, []);
+
+  useEffect(() => {
     function redirect(notification: Notifications.Notification) {
       const url = notification.request.content.data?.url;
 
-      if (url === '/registros') {
-        router.push('/registros');
+      if (url === '/meus-registros') {
+        router.push('/meus-registros');
       }
     }
 
@@ -45,9 +64,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="camera" options={{ headerShown: false }} />
-        <Stack.Screen name="mapa" options={{ headerShown: false }} />
+        <Stack.Screen name="capturar-foto" options={{ headerShown: false }} />
+        <Stack.Screen name="escolher-localizacao" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
