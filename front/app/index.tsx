@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { createUser, loginUser } from '../service/api';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +18,7 @@ import {
 type AuthMode = 'login' | 'cadastro';
 
 const CURRENT_USER_KEY = '@ruasegura:current-user';
+const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 
 export default function AuthScreen() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -25,11 +27,26 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
 
   const handleAuth = async () => {
+    if (!email.trim() || !password.trim()) {
+      return;
+    }
+
     const fallbackName = email.trim() ? email.trim().split('@')[0] : 'Morador';
     const currentUser = authMode === 'cadastro' && userName.trim() ? userName.trim() : fallbackName;
 
-    await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
-    router.replace('/(tabs)');
+    try {
+      if (authMode === 'cadastro') {
+        await createUser({ name: currentUser, email: email.trim(), senha: password });
+      } else {
+        await loginUser({ email: email.trim(), senha: password });
+      }
+
+      await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
+      await AsyncStorage.setItem(CURRENT_USER_EMAIL_KEY, email.trim());
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.warn('Falha ao autenticar:', error);
+    }
   };
 
   return (

@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
+import { createReport } from '../../service/api';
 
 type DamageReport = {
   id: string;
@@ -37,6 +38,7 @@ type SelectedLocation = {
 
 const STORAGE_KEY = '@ruasegura:damage-reports';
 const CURRENT_USER_KEY = '@ruasegura:current-user';
+const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 const DRAFT_PHOTO_KEY = '@ruasegura:draft-photo-uri';
 const DRAFT_LOCATION_KEY = '@ruasegura:draft-location';
 const NOTIFICATION_SHOWN_PREFIX = '@ruasegura:records-reminder-shown:';
@@ -207,6 +209,7 @@ export default function HomeScreen() {
 
   const handleSubmitReport = async () => {
     const currentReports = await getStoredReports();
+    const createdAt = new Date().toISOString();
     const newReport: DamageReport = {
       id: `${Date.now()}`,
       problems: selectedProblems,
@@ -216,8 +219,31 @@ export default function HomeScreen() {
       photoUri,
       author,
       details: details.trim(),
-      createdAt: new Date().toISOString(),
+      createdAt,
     };
+
+    const apiPayload: Record<string, any> = {
+      problems: selectedProblems,
+      otherProblem: otherProblem.trim(),
+      location: location.trim(),
+      photoUri,
+      author,
+      details: details.trim(),
+      createdAt,
+    };
+
+    if (selectedLocation) {
+      apiPayload.latitude = selectedLocation.latitude;
+      apiPayload.longitude = selectedLocation.longitude;
+    }
+
+    const currentUserEmail = await AsyncStorage.getItem(CURRENT_USER_EMAIL_KEY);
+
+    try {
+      await createReport(apiPayload, currentUserEmail ?? undefined);
+    } catch (error) {
+      console.warn('Falha ao enviar para API:', error);
+    }
 
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([newReport, ...currentReports]));
     await AsyncStorage.multiRemove([DRAFT_PHOTO_KEY, DRAFT_LOCATION_KEY]);

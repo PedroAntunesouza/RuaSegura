@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { getReports, getReportsByAuthor } from '../../service/api';
 
 type DamageReport = {
   id: string;
@@ -29,17 +30,39 @@ export default function RegistrosScreen() {
       let isActive = true;
 
       async function loadReports() {
-        const storedReports = await AsyncStorage.getItem(STORAGE_KEY);
-        let parsedReports: DamageReport[] = [];
+        const currentUser = await AsyncStorage.getItem('@ruasegura:current-user');
+        let fetchedReports: DamageReport[] = [];
 
         try {
-          parsedReports = storedReports ? (JSON.parse(storedReports) as DamageReport[]) : [];
-        } catch {
-          parsedReports = [];
+          const rawReports = currentUser
+            ? await getReportsByAuthor(currentUser)
+            : await getReports();
+
+          fetchedReports = (rawReports || []).map((item: any) => ({
+            id: item.id?.toString() ?? `${Date.now()}`,
+            problems: item.problems ?? [],
+            otherProblem: item.otherProblem ?? '',
+            location: item.location ?? '',
+            coordinates: item.latitude != null && item.longitude != null
+              ? { latitude: item.latitude, longitude: item.longitude }
+              : null,
+            photoUri: item.photoUri ?? '',
+            author: item.author ?? 'Morador',
+            details: item.details ?? '',
+            createdAt: item.createdAt ?? item.date ?? new Date().toISOString(),
+          }));
+        } catch (error) {
+          console.warn('Falha ao carregar registros da API, usando local storage:', error);
+          const storedReports = await AsyncStorage.getItem(STORAGE_KEY);
+          try {
+            fetchedReports = storedReports ? (JSON.parse(storedReports) as DamageReport[]) : [];
+          } catch {
+            fetchedReports = [];
+          }
         }
 
         if (isActive) {
-          setReports(parsedReports);
+          setReports(fetchedReports);
         }
       }
 
