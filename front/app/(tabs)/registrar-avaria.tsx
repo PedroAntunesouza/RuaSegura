@@ -17,17 +17,28 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
+import { createReport } from '../../service/api';
 
-import {
-  DAMAGE_REPORTS_STORAGE_KEY,
-  DamageReport,
-  SelectedLocation,
-  getReportTitle,
-  getReportsRegion,
-  getStoredReports,
-} from '@/lib/damage-reports';
+type DamageReport = {
+  id: string;
+  problems: string[];
+  otherProblem: string;
+  location: string;
+  coordinates: SelectedLocation | null;
+  photoUri: string;
+  author: string;
+  details: string;
+  createdAt: string;
+};
 
+type SelectedLocation = {
+  latitude: number;
+  longitude: number;
+};
+
+const STORAGE_KEY = '@ruasegura:damage-reports';
 const CURRENT_USER_KEY = '@ruasegura:current-user';
+const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 const DRAFT_PHOTO_KEY = '@ruasegura:draft-photo-uri';
 const DRAFT_LOCATION_KEY = '@ruasegura:draft-location';
 const NOTIFICATION_SHOWN_PREFIX = '@ruasegura:records-reminder-shown:';
@@ -47,7 +58,7 @@ const problemOptions = [
   'Outro',
 ];
 
-export default function RegisterDamageScreen() {
+export default function HomeScreen() {
   const successOpacity = useRef(new Animated.Value(0)).current;
   const [isRegisteringDamage, setIsRegisteringDamage] = useState(false);
   const [selectedProblems, setSelectedProblems] = useState<string[]>([]);
@@ -59,7 +70,6 @@ export default function RegisterDamageScreen() {
   const [details, setDetails] = useState('');
   const [sentReport, setSentReport] = useState(false);
   const [regionPreview, setRegionPreview] = useState<Region>(DEFAULT_REGION);
-  const [reports, setReports] = useState<DamageReport[]>([]);
 
   useEffect(() => {
     if (!sentReport) {
@@ -95,13 +105,10 @@ export default function RegisterDamageScreen() {
           AsyncStorage.getItem(DRAFT_LOCATION_KEY),
           AsyncStorage.getItem(CURRENT_USER_KEY),
         ]);
-        const currentReports = await getStoredReports();
 
         if (!isActive) {
           return;
         }
-
-        setReports(currentReports);
 
         if (draftPhotoUri) {
           setPhotoUri(draftPhotoUri);
@@ -144,7 +151,7 @@ export default function RegisterDamageScreen() {
           content: {
             title: 'RuaSegura',
             body: 'veja os registros ja feitos',
-            data: { url: '/meus-registros' },
+            data: { url: '/registros' },
             priority: Notifications.AndroidNotificationPriority.MAX,
             sound: true,
           },
@@ -157,18 +164,6 @@ export default function RegisterDamageScreen() {
       }
 
       async function loadRegionPreview() {
-        const currentReports = await getStoredReports();
-        const reportsRegion = getReportsRegion(currentReports);
-
-        if (reportsRegion) {
-          if (!isActive) {
-            return;
-          }
-
-          setRegionPreview(reportsRegion);
-          return;
-        }
-
         const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== 'granted') {
@@ -214,6 +209,7 @@ export default function RegisterDamageScreen() {
 
   const handleSubmitReport = async () => {
     const currentReports = await getStoredReports();
+    const createdAt = new Date().toISOString();
     const newReport: DamageReport = {
       id: `${Date.now()}`,
       problems: selectedProblems,
@@ -223,22 +219,34 @@ export default function RegisterDamageScreen() {
       photoUri,
       author,
       details: details.trim(),
-      createdAt: new Date().toISOString(),
+      createdAt,
     };
 
-    const updatedReports = [newReport, ...currentReports];
+    const apiPayload: Record<string, any> = {
+      problems: selectedProblems,
+      otherProblem: otherProblem.trim(),
+      location: location.trim(),
+      photoUri,
+      author,
+      details: details.trim(),
+      createdAt,
+    };
 
-    await AsyncStorage.setItem(DAMAGE_REPORTS_STORAGE_KEY, JSON.stringify(updatedReports));
+    if (selectedLocation) {
+      apiPayload.latitude = selectedLocation.latitude;
+      apiPayload.longitude = selectedLocation.longitude;
+    }
+
+    const currentUserEmail = await AsyncStorage.getItem(CURRENT_USER_EMAIL_KEY);
+
+    try {
+      await createReport(apiPayload, currentUserEmail ?? undefined);
+    } catch (error) {
+      console.warn('Falha ao enviar para API:', error);
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([newReport, ...currentReports]));
     await AsyncStorage.multiRemove([DRAFT_PHOTO_KEY, DRAFT_LOCATION_KEY]);
-    setReports(updatedReports);
-    setRegionPreview(
-      getReportsRegion(updatedReports) ?? {
-        latitude: newReport.coordinates?.latitude ?? DEFAULT_REGION.latitude,
-        longitude: newReport.coordinates?.longitude ?? DEFAULT_REGION.longitude,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      },
-    );
     resetReport();
     setSentReport(true);
     setIsRegisteringDamage(false);
@@ -261,196 +269,201 @@ export default function RegisterDamageScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.topBar}>
-            <View>
-              <Text style={styles.greeting}>Registrar</Text>
-              <Text style={styles.sectionHint}>Use o app para avisar problemas na sua rua.</Text>
-            </View>
+        <View style={styles.topBar}>
+          <View>
+            <Text style={styles.greeting}>Registrar</Text>
+            <Text style={styles.sectionHint}>Use o app para avisar problemas na sua rua.</Text>
           </View>
+        </View>
 
-          {!isRegisteringDamage ? (
-            <View style={styles.homeContent}>
-              <View style={styles.homePanel}>
-                <View style={styles.panelIcon}>
-                  <Ionicons name="construct" size={34} color="#0F766E" />
-                </View>
-                <Text style={styles.panelTitle}>Registrar avaria</Text>
-                <Text style={styles.panelDescription}>
-                  {
-                    'Informe buracos, postes sem luz, cal\u00e7adas danificadas, lixo espalhado ou outro problema urbano.'
-                  }
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    resetReport();
-                    setIsRegisteringDamage(true);
-                  }}
-                  style={styles.primaryButton}>
-                  <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.primaryButtonText}>Registrar avaria</Text>
-                </Pressable>
-                {sentReport && (
-                  <Animated.View style={[styles.successBox, { opacity: successOpacity }]}>
-                    <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
-                    <Text style={styles.successText}>Registro enviado.</Text>
-                  </Animated.View>
-                )}
+        {!isRegisteringDamage ? (
+          <View style={styles.homeContent}>
+            <View style={styles.homePanel}>
+              <View style={styles.panelIcon}>
+                <Ionicons name="construct" size={34} color="#0F766E" />
               </View>
-
-              <View style={styles.regionPanel}>
-                <View>
-                  <Text style={styles.panelTitle}>Mapa</Text>
-                  <Text style={styles.sectionHint}>{'Visualizar mapa da regi\u00e3o'}</Text>
-                </View>
-                <View style={styles.regionMapPreview}>
-                  <MapView
-                    pointerEvents="none"
-                    region={regionPreview}
-                    showsUserLocation
-                    style={StyleSheet.absoluteFill}>
-                    {reports.map((report) =>
-                      report.coordinates ? (
-                        <Marker
-                          coordinate={report.coordinates}
-                          key={report.id}
-                          title={getReportTitle(report)}
-                        />
-                      ) : null,
-                    )}
-                  </MapView>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.formPanel}>
-              <View style={styles.formHeader}>
-                <Pressable
-                  accessibilityLabel="Voltar para tela inicial"
-                  accessibilityRole="button"
-                  onPress={() => setIsRegisteringDamage(false)}
-                  style={styles.iconButton}>
-                  <Ionicons name="arrow-back" size={22} color="#1F2937" />
-                </Pressable>
-                <View style={styles.formTitleGroup}>
-                  <Text style={styles.panelTitle}>Qual o problema?</Text>
-                  <Text style={styles.sectionHint}>{'Marque uma ou mais op\u00e7\u00f5es.'}</Text>
-                </View>
-              </View>
-
-              <View style={styles.optionList}>
-                {problemOptions.map((problem) => {
-                  const isSelected = selectedProblems.includes(problem);
-
-                  return (
-                    <Pressable
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: isSelected }}
-                      key={problem}
-                      onPress={() => toggleProblem(problem)}
-                      style={[styles.problemOption, isSelected && styles.problemOptionSelected]}>
-                      <Ionicons
-                        name={isSelected ? 'checkbox' : 'square-outline'}
-                        size={24}
-                        color={isSelected ? '#0F766E' : '#64748B'}
-                      />
-                      <Text style={styles.problemText}>{problem}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {selectedProblems.includes('Outro') && (
-                <TextInput
-                  multiline
-                  onChangeText={setOtherProblem}
-                  placeholder="Descreva o que aconteceu"
-                  placeholderTextColor="#6B7280"
-                  style={[styles.input, styles.textArea]}
-                  value={otherProblem}
-                />
-              )}
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Foto da avaria</Text>
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-                ) : (
-                  <View style={styles.emptyPhotoPreview}>
-                    <Ionicons name="camera-outline" size={28} color="#64748B" />
-                    <Text style={styles.emptyPhotoText}>Nenhuma foto adicionada.</Text>
-                  </View>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => router.push('/capturar-foto')}
-                  style={styles.secondaryButton}>
-                  <Ionicons name="camera" size={18} color="#0F766E" />
-                  <Text style={styles.secondaryButtonText}>Abrir camera</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{'Localiza\u00e7\u00e3o'}</Text>
-                <View style={styles.mapPreview}>
-                  {selectedLocation ? (
-                    <MapView
-                      pointerEvents="none"
-                      region={{
-                        latitude: selectedLocation.latitude,
-                        longitude: selectedLocation.longitude,
-                        latitudeDelta: 0.01,
-                        longitudeDelta: 0.01,
-                      }}
-                      style={StyleSheet.absoluteFill}>
-                      <Marker coordinate={selectedLocation} />
-                    </MapView>
-                  ) : (
-                    <View style={styles.emptyMapPreview}>
-                      <Ionicons name="map-outline" size={28} color="#64748B" />
-                      <Text style={styles.emptyPhotoText}>Escolha um ponto no mapa.</Text>
-                    </View>
-                  )}
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => router.push('/escolher-localizacao')}
-                  style={styles.secondaryButton}>
-                  <Ionicons name="expand" size={18} color="#0F766E" />
-                  <Text style={styles.secondaryButtonText}>Exibir em tela cheia</Text>
-                </Pressable>
-              </View>
-
-              <TextInput
-                onChangeText={setLocation}
-                placeholder={'Localiza\u00e7\u00e3o'}
-                placeholderTextColor="#6B7280"
-                style={styles.input}
-                value={locationLabel || location}
-                editable={!selectedLocation}
-              />
-              <TextInput
-                multiline
-                onChangeText={setDetails}
-                placeholder="Detalhes adicionais"
-                placeholderTextColor="#6B7280"
-                style={[styles.input, styles.textArea]}
-                value={details}
-              />
-
+              <Text style={styles.panelTitle}>Registrar avaria</Text>
+              <Text style={styles.panelDescription}>
+                {
+                  'Informe buracos, postes sem luz, cal\u00e7adas danificadas, lixo espalhado ou outro problema urbano.'
+                }
+              </Text>
               <Pressable
                 accessibilityRole="button"
-                disabled={selectedProblems.length === 0}
-                onPress={handleSubmitReport}
-                style={[styles.primaryButton, selectedProblems.length === 0 && styles.buttonDisabled]}>
-                <Ionicons name="send" size={18} color="#FFFFFF" />
-                <Text style={styles.primaryButtonText}>Enviar registro</Text>
+                onPress={() => {
+                  resetReport();
+                  setIsRegisteringDamage(true);
+                }}
+                style={styles.primaryButton}>
+                <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.primaryButtonText}>Registrar avaria</Text>
+              </Pressable>
+              {sentReport && (
+                <Animated.View style={[styles.successBox, { opacity: successOpacity }]}>
+                  <Ionicons name="checkmark-circle" size={20} color="#0F766E" />
+                  <Text style={styles.successText}>Registro enviado.</Text>
+                </Animated.View>
+              )}
+            </View>
+
+            <View style={styles.regionPanel}>
+              <View>
+                <Text style={styles.panelTitle}>Mapa</Text>
+                <Text style={styles.sectionHint}>{'Visualizar mapa da regi\u00e3o'}</Text>
+              </View>
+              <View style={styles.regionMapPreview}>
+                <MapView
+                  pointerEvents="none"
+                  region={regionPreview}
+                  showsUserLocation
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.formPanel}>
+            <View style={styles.formHeader}>
+              <View>
+                <Text style={styles.panelTitle}>Qual o problema?</Text>
+                <Text style={styles.sectionHint}>{'Marque uma ou mais op\u00e7\u00f5es.'}</Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Fechar formulario"
+                accessibilityRole="button"
+                onPress={() => setIsRegisteringDamage(false)}
+                style={styles.iconButton}>
+                <Ionicons name="close" size={22} color="#1F2937" />
               </Pressable>
             </View>
-          )}
+
+            <View style={styles.optionList}>
+              {problemOptions.map((problem) => {
+                const isSelected = selectedProblems.includes(problem);
+
+                return (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                    key={problem}
+                    onPress={() => toggleProblem(problem)}
+                    style={[styles.problemOption, isSelected && styles.problemOptionSelected]}>
+                    <Ionicons
+                      name={isSelected ? 'checkbox' : 'square-outline'}
+                      size={24}
+                      color={isSelected ? '#0F766E' : '#64748B'}
+                    />
+                    <Text style={styles.problemText}>{problem}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {selectedProblems.includes('Outro') && (
+              <TextInput
+                multiline
+                onChangeText={setOtherProblem}
+                placeholder="Descreva o que aconteceu"
+                placeholderTextColor="#6B7280"
+                style={[styles.input, styles.textArea]}
+                value={otherProblem}
+              />
+            )}
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Foto da avaria</Text>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+              ) : (
+                <View style={styles.emptyPhotoPreview}>
+                  <Ionicons name="camera-outline" size={28} color="#64748B" />
+                  <Text style={styles.emptyPhotoText}>Nenhuma foto adicionada.</Text>
+                </View>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/camera')}
+                style={styles.secondaryButton}>
+                <Ionicons name="camera" size={18} color="#0F766E" />
+                <Text style={styles.secondaryButtonText}>Abrir camera</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{'Localiza\u00e7\u00e3o'}</Text>
+              <View style={styles.mapPreview}>
+                {selectedLocation ? (
+                  <MapView
+                    pointerEvents="none"
+                    region={{
+                      latitude: selectedLocation.latitude,
+                      longitude: selectedLocation.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    style={StyleSheet.absoluteFill}>
+                    <Marker coordinate={selectedLocation} />
+                  </MapView>
+                ) : (
+                  <View style={styles.emptyMapPreview}>
+                    <Ionicons name="map-outline" size={28} color="#64748B" />
+                    <Text style={styles.emptyPhotoText}>Escolha um ponto no mapa.</Text>
+                  </View>
+                )}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/mapa')}
+                style={styles.secondaryButton}>
+                <Ionicons name="expand" size={18} color="#0F766E" />
+                <Text style={styles.secondaryButtonText}>Exibir em tela cheia</Text>
+              </Pressable>
+            </View>
+
+            <TextInput
+              onChangeText={setLocation}
+              placeholder={'Localiza\u00e7\u00e3o'}
+              placeholderTextColor="#6B7280"
+              style={styles.input}
+              value={locationLabel || location}
+              editable={!selectedLocation}
+            />
+            <TextInput
+              multiline
+              onChangeText={setDetails}
+              placeholder="Detalhes adicionais"
+              placeholderTextColor="#6B7280"
+              style={[styles.input, styles.textArea]}
+              value={details}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={selectedProblems.length === 0}
+              onPress={handleSubmitReport}
+              style={[styles.primaryButton, selectedProblems.length === 0 && styles.buttonDisabled]}>
+              <Ionicons name="send" size={18} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Enviar registro</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+async function getStoredReports() {
+  const storedReports = await AsyncStorage.getItem(STORAGE_KEY);
+
+  if (!storedReports) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(storedReports) as DamageReport[];
+  } catch {
+    return [];
+  }
 }
 
 async function ensureNotificationPermission() {
@@ -531,9 +544,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    paddingBottom: 96,
-    paddingHorizontal: 20,
-    paddingTop: 32,
+    padding: 20,
   },
   topBar: {
     alignItems: 'center',
@@ -622,10 +633,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 12,
+    justifyContent: 'space-between',
     marginBottom: 16,
-  },
-  formTitleGroup: {
-    flex: 1,
   },
   optionList: {
     gap: 10,
