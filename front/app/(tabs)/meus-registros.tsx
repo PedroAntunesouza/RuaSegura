@@ -1,11 +1,28 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { getReports, getReportsByAuthor } from '../../service/api';
 
-import { DamageReport, getStoredReports } from '@/lib/damage-reports';
+type DamageReport = {
+  id: string;
+  problems: string[];
+  otherProblem: string;
+  location: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  } | null;
+  photoUri: string;
+  author: string;
+  details: string;
+  createdAt: string;
+};
 
-export default function MyRecordsScreen() {
+const STORAGE_KEY = '@ruasegura:damage-reports';
+
+export default function RegistrosScreen() {
   const [reports, setReports] = useState<DamageReport[]>([]);
 
   useFocusEffect(
@@ -13,10 +30,39 @@ export default function MyRecordsScreen() {
       let isActive = true;
 
       async function loadReports() {
-        const parsedReports = await getStoredReports();
+        const currentUser = await AsyncStorage.getItem('@ruasegura:current-user');
+        let fetchedReports: DamageReport[] = [];
+
+        try {
+          const rawReports = currentUser
+            ? await getReportsByAuthor(currentUser)
+            : await getReports();
+
+          fetchedReports = (rawReports || []).map((item: any) => ({
+            id: item.id?.toString() ?? `${Date.now()}`,
+            problems: item.problems ?? [],
+            otherProblem: item.otherProblem ?? '',
+            location: item.location ?? '',
+            coordinates: item.latitude != null && item.longitude != null
+              ? { latitude: item.latitude, longitude: item.longitude }
+              : null,
+            photoUri: item.photoUri ?? '',
+            author: item.author ?? 'Morador',
+            details: item.details ?? '',
+            createdAt: item.createdAt ?? item.date ?? new Date().toISOString(),
+          }));
+        } catch (error) {
+          console.warn('Falha ao carregar registros da API, usando local storage:', error);
+          const storedReports = await AsyncStorage.getItem(STORAGE_KEY);
+          try {
+            fetchedReports = storedReports ? (JSON.parse(storedReports) as DamageReport[]) : [];
+          } catch {
+            fetchedReports = [];
+          }
+        }
 
         if (isActive) {
-          setReports(parsedReports);
+          setReports(fetchedReports);
         }
       }
 
@@ -31,58 +77,58 @@ export default function MyRecordsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.topBar}>
-            <View style={styles.titleGroup}>
-              <Text style={styles.title}>Registros</Text>
-              <Text style={styles.subtitle}>Acompanhe os registros feitos.</Text>
-            </View>
+        <View style={styles.topBar}>
+          <View style={styles.titleGroup}>
+            <Text style={styles.title}>Meus registros</Text>
+            <Text style={styles.subtitle}>Acompanhe as avarias que voce enviou.</Text>
           </View>
+        </View>
 
-          {reports.length === 0 ? (
-            <View style={styles.emptyPanel}>
-              <Ionicons name="document-text-outline" size={36} color="#64748B" />
-              <Text style={styles.emptyTitle}>Nenhum registro ainda foi feito.</Text>
-            </View>
-          ) : (
-            <View style={styles.list}>
-              {reports.map((report) => (
-                <View key={report.id} style={styles.reportCard}>
-                  {report.photoUri ? (
-                    <Image source={{ uri: report.photoUri }} style={styles.reportImage} />
-                  ) : null}
+        {reports.length === 0 ? (
+          <View style={styles.emptyPanel}>
+            <Ionicons name="document-text-outline" size={36} color="#64748B" />
+            <Text style={styles.emptyTitle}>Nenhum registro ainda foi feito.</Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {reports.map((report) => (
+              <View key={report.id} style={styles.reportCard}>
+                {report.photoUri ? (
+                  <Image source={{ uri: report.photoUri }} style={styles.reportImage} />
+                ) : null}
 
-                  <View style={styles.authorRow}>
-                    <Ionicons name="person-circle-outline" size={18} color="#0F766E" />
-                    <Text style={styles.authorText}>Registrado por {report.author || 'Morador'}</Text>
-                  </View>
-
-                  <View style={styles.reportHeader}>
-                    <Text style={styles.reportTitle}>{report.problems.join(', ')}</Text>
-                    <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
-                  </View>
-
-                  {report.otherProblem ? (
-                    <Text style={styles.reportText}>{report.otherProblem}</Text>
-                  ) : null}
-                  {report.location ? (
-                    <View style={styles.infoRow}>
-                      <Ionicons name="location-outline" size={16} color="#64748B" />
-                      <Text style={styles.reportText}>{report.location}</Text>
-                    </View>
-                  ) : null}
-                  {report.coordinates ? (
-                    <View style={styles.infoRow}>
-                      <Ionicons name="navigate-outline" size={16} color="#64748B" />
-                      <Text style={styles.reportText}>
-                        {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {report.details ? <Text style={styles.reportText}>{report.details}</Text> : null}
+                <View style={styles.authorRow}>
+                  <Ionicons name="person-circle-outline" size={18} color="#0F766E" />
+                  <Text style={styles.authorText}>Registrado por {report.author || 'Morador'}</Text>
                 </View>
-              ))}
-            </View>
-          )}
+
+                <View style={styles.reportHeader}>
+                  <Text style={styles.reportTitle}>{report.problems.join(', ')}</Text>
+                  <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
+                </View>
+
+                {report.otherProblem ? (
+                  <Text style={styles.reportText}>{report.otherProblem}</Text>
+                ) : null}
+                {report.location ? (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location-outline" size={16} color="#64748B" />
+                    <Text style={styles.reportText}>{report.location}</Text>
+                  </View>
+                ) : null}
+                {report.coordinates ? (
+                  <View style={styles.infoRow}>
+                    <Ionicons name="navigate-outline" size={16} color="#64748B" />
+                    <Text style={styles.reportText}>
+                      {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
+                    </Text>
+                  </View>
+                ) : null}
+                {report.details ? <Text style={styles.reportText}>{report.details}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -104,9 +150,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    paddingBottom: 96,
-    paddingHorizontal: 20,
-    paddingTop: 32,
+    padding: 20,
   },
   topBar: {
     alignItems: 'center',

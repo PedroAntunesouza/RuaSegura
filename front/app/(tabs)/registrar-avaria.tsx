@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   SafeAreaView,
@@ -70,6 +71,12 @@ export default function HomeScreen() {
   const [details, setDetails] = useState('');
   const [sentReport, setSentReport] = useState(false);
   const [regionPreview, setRegionPreview] = useState<Region>(DEFAULT_REGION);
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem(CURRENT_USER_KEY);
+    await AsyncStorage.removeItem(CURRENT_USER_EMAIL_KEY);
+    router.replace('/');
+  };
 
   useEffect(() => {
     if (!sentReport) {
@@ -268,12 +275,22 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled">
         <View style={styles.topBar}>
           <View>
             <Text style={styles.greeting}>Registrar</Text>
             <Text style={styles.sectionHint}>Use o app para avisar problemas na sua rua.</Text>
           </View>
+          <Pressable onPress={handleLogout} style={styles.logoutButton}>
+            <Ionicons name="exit-outline" size={24} color="#0F766E" />
+            <Text style={styles.logoutText}>Sair</Text>
+          </Pressable>
         </View>
 
         {!isRegisteringDamage ? (
@@ -382,7 +399,7 @@ export default function HomeScreen() {
               )}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push('/camera')}
+                onPress={() => router.push('/capturar-foto')}
                 style={styles.secondaryButton}>
                 <Ionicons name="camera" size={18} color="#0F766E" />
                 <Text style={styles.secondaryButtonText}>Abrir camera</Text>
@@ -413,7 +430,7 @@ export default function HomeScreen() {
               </View>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push('/mapa')}
+                onPress={() => router.push('/escolher-localizacao')}
                 style={styles.secondaryButton}>
                 <Ionicons name="expand" size={18} color="#0F766E" />
                 <Text style={styles.secondaryButtonText}>Exibir em tela cheia</Text>
@@ -448,6 +465,7 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -490,6 +508,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F4F7F6',
+  },
+  keyboardView: {
+    flex: 1,
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -570,6 +591,15 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     width: 44,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  logoutText: {
+    color: '#0F766E',
+    fontSize: 12,
+    fontWeight: '600',
   },
   homePanel: {
     backgroundColor: '#FFFFFF',

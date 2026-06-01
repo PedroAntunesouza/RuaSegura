@@ -33,7 +33,7 @@ export default function MainTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="meus-registros"
+        name="registros"
         options={{
           title: 'Registros',
           tabBarIcon: ({ color, size }) => (
@@ -47,6 +47,15 @@ export default function MainTabsLayout() {
           title: 'Mapa detalhado',
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="map-outline" size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="meus-registros"
+        options={{
+          title: 'Meus registros',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="person-outline" size={size} />
           ),
         }}
       />

@@ -45,6 +45,10 @@ export default function RootLayout() {
       if (url === '/meus-registros') {
         router.push('/meus-registros');
       }
+
+      if (url === '/registros') {
+        router.push('/registros');
+      }
     }
 
     Notifications.getLastNotificationResponseAsync().then((response) => {

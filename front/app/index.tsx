@@ -43,7 +43,7 @@ export default function AuthScreen() {
 
       await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
       await AsyncStorage.setItem(CURRENT_USER_EMAIL_KEY, email.trim());
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/registrar-avaria');
     } catch (error) {
       console.warn('Falha ao autenticar:', error);
     }
@@ -52,9 +52,12 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.authContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.authContainer}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled">
           <View style={styles.brandMark}>
             <Ionicons name="shield-checkmark" size={38} color="#FFFFFF" />
           </View>

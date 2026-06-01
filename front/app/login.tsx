@@ -29,15 +29,18 @@ export default function AuthScreen() {
     const currentUser = authMode === 'cadastro' && userName.trim() ? userName.trim() : fallbackName;
 
     await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
-    router.replace('/registrar-avaria');
+    router.replace('/(tabs)/registrar-avaria');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.authContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.authContainer}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled">
           <View style={styles.brandMark}>
             <Ionicons name="shield-checkmark" size={38} color="#FFFFFF" />
           </View>
