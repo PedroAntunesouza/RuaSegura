@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/lib/app-theme';
 
 export default function MainTabsLayout() {
+  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 8);
 
@@ -10,10 +12,11 @@ export default function MainTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0F766E',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: isDark ? '#5EEAD4' : '#0F766E',
+        tabBarInactiveTintColor: isDark ? '#94A3B8' : '#64748B',
         tabBarStyle: {
-          borderTopColor: '#D8E3DF',
+          backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+          borderTopColor: isDark ? '#334155' : '#D8E3DF',
           height: 54 + bottomInset,
           paddingBottom: bottomInset,
           paddingTop: 8,
@@ -53,7 +56,7 @@ export default function MainTabsLayout() {
       <Tabs.Screen
         name="meus-registros"
         options={{
-          title: 'Meus registros',
+          title: 'Meu perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="person-outline" size={size} />
           ),

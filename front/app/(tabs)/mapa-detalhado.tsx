@@ -11,6 +11,7 @@ import {
   getReportsRegion,
   getStoredReports,
 } from '@/lib/damage-reports';
+import { useAppTheme } from '@/lib/app-theme';
 
 const DEFAULT_REGION = {
   latitude: -23.55052,
@@ -20,6 +21,7 @@ const DEFAULT_REGION = {
 };
 
 export default function DetailedMapScreen() {
+  const { isDark } = useAppTheme();
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const [reports, setReports] = useState<DamageReport[]>([]);
   const [selectedReport, setSelectedReport] = useState<DamageReport | null>(null);
@@ -74,8 +76,8 @@ export default function DetailedMapScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.mapFrame}>
+    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
+      <View style={[styles.mapFrame, isDark && styles.mapFrameDark]}>
         <MapView
           onPress={() => setSelectedReport(null)}
           onRegionChangeComplete={setRegion}
@@ -98,15 +100,17 @@ export default function DetailedMapScreen() {
         </MapView>
 
         {selectedReport ? (
-          <View style={styles.reportPanel}>
+          <View style={[styles.reportPanel, isDark && styles.reportPanelDark]}>
             <View style={styles.reportPanelHeader}>
-              <Text style={styles.reportPanelTitle}>{getReportTitle(selectedReport)}</Text>
+              <Text style={[styles.reportPanelTitle, isDark && styles.titleDark]}>
+                {getReportTitle(selectedReport)}
+              </Text>
               <Pressable
                 accessibilityLabel="Fechar detalhes do registro"
                 accessibilityRole="button"
                 onPress={() => setSelectedReport(null)}
-                style={styles.closeButton}>
-                <Ionicons name="close" size={18} color="#111827" />
+                style={[styles.closeButton, isDark && styles.closeButtonDark]}>
+                <Ionicons name="close" size={18} color={isDark ? '#F8FAFC' : '#111827'} />
               </Pressable>
             </View>
             {selectedReport.problems.length > 0 ? (
@@ -118,10 +122,14 @@ export default function DetailedMapScreen() {
               <Image source={{ uri: selectedReport.photoUri }} style={styles.reportImage} />
             ) : null}
             {selectedReport.details ? (
-              <Text style={styles.reportPanelText}>{selectedReport.details}</Text>
+              <Text style={[styles.reportPanelText, isDark && styles.bodyDark]}>
+                {selectedReport.details}
+              </Text>
             ) : null}
             {selectedReport.location ? (
-              <Text style={styles.reportPanelText}>{selectedReport.location}</Text>
+              <Text style={[styles.reportPanelText, isDark && styles.bodyDark]}>
+                {selectedReport.location}
+              </Text>
             ) : null}
             {selectedReport.coordinates ? (
               <Text style={styles.reportPanelMeta}>
@@ -202,5 +210,25 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     width: 32,
+  },
+  safeAreaDark: {
+    backgroundColor: '#0F172A',
+  },
+  mapFrameDark: {
+    backgroundColor: '#1E293B',
+  },
+  reportPanelDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  closeButtonDark: {
+    backgroundColor: '#334155',
+    borderColor: '#475569',
+  },
+  titleDark: {
+    color: '#F8FAFC',
+  },
+  bodyDark: {
+    color: '#CBD5E1',
   },
 });

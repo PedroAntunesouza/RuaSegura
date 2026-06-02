@@ -4,8 +4,10 @@ import { useCallback, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DamageReport, getStoredReports } from '@/lib/damage-reports';
+import { useAppTheme } from '@/lib/app-theme';
 
 export default function MyRecordsScreen() {
+  const { isDark } = useAppTheme();
   const [reports, setReports] = useState<DamageReport[]>([]);
 
   useFocusEffect(
@@ -29,24 +31,28 @@ export default function MyRecordsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
       <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.topBar}>
             <View style={styles.titleGroup}>
-              <Text style={styles.title}>Registros</Text>
-              <Text style={styles.subtitle}>Acompanhe os registros feitos.</Text>
+              <Text style={[styles.title, isDark && styles.titleDark]}>Registros</Text>
+              <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
+                Acompanhe os registros feitos.
+              </Text>
             </View>
           </View>
 
           {reports.length === 0 ? (
-            <View style={styles.emptyPanel}>
+            <View style={[styles.emptyPanel, isDark && styles.cardDark]}>
               <Ionicons name="document-text-outline" size={36} color="#64748B" />
-              <Text style={styles.emptyTitle}>Nenhum registro ainda foi feito.</Text>
+              <Text style={[styles.emptyTitle, isDark && styles.titleDark]}>
+                Nenhum registro ainda foi feito.
+              </Text>
             </View>
           ) : (
             <View style={styles.list}>
               {reports.map((report) => (
-                <View key={report.id} style={styles.reportCard}>
+                <View key={report.id} style={[styles.reportCard, isDark && styles.cardDark]}>
                   {report.photoUri ? (
                     <Image source={{ uri: report.photoUri }} style={styles.reportImage} />
                   ) : null}
@@ -57,28 +63,38 @@ export default function MyRecordsScreen() {
                   </View>
 
                   <View style={styles.reportHeader}>
-                    <Text style={styles.reportTitle}>{report.problems.join(', ')}</Text>
-                    <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
+                    <Text style={[styles.reportTitle, isDark && styles.titleDark]}>
+                      {report.problems.join(', ')}
+                    </Text>
+                    <Text style={[styles.reportDate, isDark && styles.subtitleDark]}>
+                      {formatDate(report.createdAt)}
+                    </Text>
                   </View>
 
                   {report.otherProblem ? (
-                    <Text style={styles.reportText}>{report.otherProblem}</Text>
+                    <Text style={[styles.reportText, isDark && styles.bodyDark]}>
+                      {report.otherProblem}
+                    </Text>
                   ) : null}
                   {report.location ? (
                     <View style={styles.infoRow}>
                       <Ionicons name="location-outline" size={16} color="#64748B" />
-                      <Text style={styles.reportText}>{report.location}</Text>
+                      <Text style={[styles.reportText, isDark && styles.bodyDark]}>
+                        {report.location}
+                      </Text>
                     </View>
                   ) : null}
                   {report.coordinates ? (
                     <View style={styles.infoRow}>
                       <Ionicons name="navigate-outline" size={16} color="#64748B" />
-                      <Text style={styles.reportText}>
+                      <Text style={[styles.reportText, isDark && styles.bodyDark]}>
                         {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
                       </Text>
                     </View>
                   ) : null}
-                  {report.details ? <Text style={styles.reportText}>{report.details}</Text> : null}
+                  {report.details ? (
+                    <Text style={[styles.reportText, isDark && styles.bodyDark]}>{report.details}</Text>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -191,5 +207,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     lineHeight: 21,
+  },
+  safeAreaDark: {
+    backgroundColor: '#0F172A',
+  },
+  cardDark: {
+    backgroundColor: '#1E293B',
+  },
+  titleDark: {
+    color: '#F8FAFC',
+  },
+  subtitleDark: {
+    color: '#94A3B8',
+  },
+  bodyDark: {
+    color: '#CBD5E1',
   },
 });

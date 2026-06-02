@@ -2,8 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getReports, getReportsByAuthor } from '../../service/api';
+import { useAppTheme } from '@/lib/app-theme';
 
 type DamageReport = {
   id: string;
@@ -21,16 +22,26 @@ type DamageReport = {
 };
 
 const STORAGE_KEY = '@ruasegura:damage-reports';
+const CURRENT_USER_KEY = '@ruasegura:current-user';
+const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 
 export default function RegistrosScreen() {
+  const { isDark, toggleTheme } = useAppTheme();
   const [reports, setReports] = useState<DamageReport[]>([]);
+  const [profile, setProfile] = useState({
+    email: '',
+    name: 'Morador',
+  });
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       async function loadReports() {
-        const currentUser = await AsyncStorage.getItem('@ruasegura:current-user');
+        const [currentUser, currentEmail] = await Promise.all([
+          AsyncStorage.getItem(CURRENT_USER_KEY),
+          AsyncStorage.getItem(CURRENT_USER_EMAIL_KEY),
+        ]);
         let fetchedReports: DamageReport[] = [];
 
         try {
@@ -63,6 +74,10 @@ export default function RegistrosScreen() {
 
         if (isActive) {
           setReports(fetchedReports);
+          setProfile({
+            email: currentEmail ?? '',
+            name: currentUser ?? 'Morador',
+          });
         }
       }
 
@@ -75,24 +90,55 @@ export default function RegistrosScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.titleGroup}>
-            <Text style={styles.title}>Meus registros</Text>
-            <Text style={styles.subtitle}>Acompanhe as avarias que voce enviou.</Text>
+            <Text style={[styles.title, isDark && styles.titleDark]}>Meu perfil</Text>
+            <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
+              Veja seus dados e acompanhe as avarias que voce enviou.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityLabel={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            accessibilityRole="button"
+            onPress={toggleTheme}
+            style={[styles.themeButton, isDark && styles.themeButtonDark]}>
+            <Ionicons
+              name={isDark ? 'moon' : 'sunny-outline'}
+              size={23}
+              color={isDark ? '#F8FAFC' : '#0F766E'}
+            />
+          </Pressable>
+        </View>
+
+        <View style={[styles.profileCard, isDark && styles.cardDark]}>
+          <View style={[styles.profileIcon, isDark && styles.profileIconDark]}>
+            <Ionicons name="person-circle-outline" size={52} color="#0F766E" />
+          </View>
+
+          <View style={styles.profileInfo}>
+            <Text style={[styles.profileName, isDark && styles.titleDark]}>{profile.name}</Text>
+            <Text style={[styles.profileEmail, isDark && styles.bodyDark]}>
+              {profile.email || 'Email nao informado'}
+            </Text>
+            <Text style={styles.profileCount}>
+              {reports.length} {reports.length === 1 ? 'registro feito' : 'registros feitos'}
+            </Text>
           </View>
         </View>
 
         {reports.length === 0 ? (
-          <View style={styles.emptyPanel}>
+          <View style={[styles.emptyPanel, isDark && styles.cardDark]}>
             <Ionicons name="document-text-outline" size={36} color="#64748B" />
-            <Text style={styles.emptyTitle}>Nenhum registro ainda foi feito.</Text>
+            <Text style={[styles.emptyTitle, isDark && styles.titleDark]}>
+              Nenhum registro ainda foi feito.
+            </Text>
           </View>
         ) : (
           <View style={styles.list}>
             {reports.map((report) => (
-              <View key={report.id} style={styles.reportCard}>
+              <View key={report.id} style={[styles.reportCard, isDark && styles.cardDark]}>
                 {report.photoUri ? (
                   <Image source={{ uri: report.photoUri }} style={styles.reportImage} />
                 ) : null}
@@ -103,28 +149,38 @@ export default function RegistrosScreen() {
                 </View>
 
                 <View style={styles.reportHeader}>
-                  <Text style={styles.reportTitle}>{report.problems.join(', ')}</Text>
-                  <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
+                  <Text style={[styles.reportTitle, isDark && styles.titleDark]}>
+                    {report.problems.join(', ')}
+                  </Text>
+                  <Text style={[styles.reportDate, isDark && styles.subtitleDark]}>
+                    {formatDate(report.createdAt)}
+                  </Text>
                 </View>
 
                 {report.otherProblem ? (
-                  <Text style={styles.reportText}>{report.otherProblem}</Text>
+                  <Text style={[styles.reportText, isDark && styles.bodyDark]}>
+                    {report.otherProblem}
+                  </Text>
                 ) : null}
                 {report.location ? (
                   <View style={styles.infoRow}>
                     <Ionicons name="location-outline" size={16} color="#64748B" />
-                    <Text style={styles.reportText}>{report.location}</Text>
+                    <Text style={[styles.reportText, isDark && styles.bodyDark]}>
+                      {report.location}
+                    </Text>
                   </View>
                 ) : null}
                 {report.coordinates ? (
                   <View style={styles.infoRow}>
                     <Ionicons name="navigate-outline" size={16} color="#64748B" />
-                    <Text style={styles.reportText}>
+                    <Text style={[styles.reportText, isDark && styles.bodyDark]}>
                       {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
                     </Text>
                   </View>
                 ) : null}
-                {report.details ? <Text style={styles.reportText}>{report.details}</Text> : null}
+                {report.details ? (
+                  <Text style={[styles.reportText, isDark && styles.bodyDark]}>{report.details}</Text>
+                ) : null}
               </View>
             ))}
           </View>
@@ -155,6 +211,7 @@ const styles = StyleSheet.create({
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 12,
     marginBottom: 20,
   },
   titleGroup: {
@@ -169,6 +226,56 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 15,
     lineHeight: 21,
+  },
+  themeButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  themeButtonDark: {
+    backgroundColor: '#1E293B',
+  },
+  profileCard: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 14,
+    padding: 16,
+  },
+  profileIcon: {
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    height: 68,
+    justifyContent: 'center',
+    width: 68,
+  },
+  profileInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  profileName: {
+    color: '#111827',
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 25,
+  },
+  profileEmail: {
+    color: '#475569',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 21,
+  },
+  profileCount: {
+    color: '#0F766E',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
   },
   emptyPanel: {
     alignItems: 'center',
@@ -235,5 +342,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     lineHeight: 21,
+  },
+  safeAreaDark: {
+    backgroundColor: '#0F172A',
+  },
+  cardDark: {
+    backgroundColor: '#1E293B',
+  },
+  profileIconDark: {
+    backgroundColor: '#134E4A',
+  },
+  titleDark: {
+    color: '#F8FAFC',
+  },
+  subtitleDark: {
+    color: '#94A3B8',
+  },
+  bodyDark: {
+    color: '#CBD5E1',
   },
 });

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { createUser, loginUser } from '../service/api';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,24 +26,44 @@ export default function AuthScreen() {
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const handleAuth = async () => {
-    if (!email.trim() || !password.trim()) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password.trim() || (authMode === 'cadastro' && !userName.trim())) {
+      Alert.alert('Erro', 'Preencha todos os dados.');
       return;
     }
 
-    const fallbackName = email.trim() ? email.trim().split('@')[0] : 'Morador';
+    if (authMode === 'cadastro' && !trimmedEmail.includes('@')) {
+      Alert.alert('Erro no cadastro', 'Digite um email valido.');
+      return;
+    }
+
+    if (authMode === 'cadastro' && password.length < 5) {
+      Alert.alert('Erro no cadastro', 'A senha precisa ter no minimo 5 caracteres.');
+      return;
+    }
+
+    const fallbackName = trimmedEmail ? trimmedEmail.split('@')[0] : 'Morador';
     const currentUser = authMode === 'cadastro' && userName.trim() ? userName.trim() : fallbackName;
 
     try {
+      let authResponse: any;
+
       if (authMode === 'cadastro') {
-        await createUser({ name: currentUser, email: email.trim(), senha: password });
+        authResponse = await createUser({ name: currentUser, email: trimmedEmail, senha: password });
       } else {
-        await loginUser({ email: email.trim(), senha: password });
+        authResponse = await loginUser({ email: trimmedEmail, senha: password });
       }
 
-      await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
-      await AsyncStorage.setItem(CURRENT_USER_EMAIL_KEY, email.trim());
+      const apiUser = authResponse?.user ?? authResponse;
+      const storedUserName = apiUser?.name ?? apiUser?.nome ?? currentUser;
+      const storedEmail = apiUser?.email ?? trimmedEmail;
+
+      await AsyncStorage.setItem(CURRENT_USER_KEY, storedUserName);
+      await AsyncStorage.setItem(CURRENT_USER_EMAIL_KEY, storedEmail);
       router.replace('/(tabs)/registrar-avaria');
     } catch (error) {
       console.warn('Falha ao autenticar:', error);
@@ -111,14 +132,27 @@ export default function AuthScreen() {
             style={styles.input}
             value={email}
           />
-          <TextInput
-            onChangeText={setPassword}
-            placeholder="Senha"
-            placeholderTextColor="#6B7280"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-          />
+          <View style={styles.passwordField}>
+            <TextInput
+              onChangeText={setPassword}
+              placeholder={authMode === 'cadastro' ? 'Senha com no minimo 5 caracteres' : 'Senha'}
+              placeholderTextColor="#6B7280"
+              secureTextEntry={!isPasswordVisible}
+              style={[styles.input, styles.passwordInput]}
+              value={password}
+            />
+            <Pressable
+              accessibilityLabel={isPasswordVisible ? 'Esconder senha' : 'Mostrar senha'}
+              accessibilityRole="button"
+              onPress={() => setIsPasswordVisible((current) => !current)}
+              style={styles.passwordToggle}>
+              <Ionicons
+                name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color="#64748B"
+              />
+            </Pressable>
+          </View>
 
           <Pressable accessibilityRole="button" onPress={handleAuth} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>
@@ -211,6 +245,23 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  passwordField: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
+    top: 0,
+    width: 44,
   },
   primaryButton: {
     alignItems: 'center',

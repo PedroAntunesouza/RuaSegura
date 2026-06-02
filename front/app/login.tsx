@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,18 +18,38 @@ import {
 type AuthMode = 'login' | 'cadastro';
 
 const CURRENT_USER_KEY = '@ruasegura:current-user';
+const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 
 export default function AuthScreen() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const handleAuth = async () => {
-    const fallbackName = email.trim() ? email.trim().split('@')[0] : 'Morador';
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password.trim() || (authMode === 'cadastro' && !userName.trim())) {
+      Alert.alert('Erro', 'Preencha todos os dados.');
+      return;
+    }
+
+    if (authMode === 'cadastro' && !trimmedEmail.includes('@')) {
+      Alert.alert('Erro no cadastro', 'Digite um email valido.');
+      return;
+    }
+
+    if (authMode === 'cadastro' && password.length < 5) {
+      Alert.alert('Erro no cadastro', 'A senha precisa ter no minimo 5 caracteres.');
+      return;
+    }
+
+    const fallbackName = trimmedEmail ? trimmedEmail.split('@')[0] : 'Morador';
     const currentUser = authMode === 'cadastro' && userName.trim() ? userName.trim() : fallbackName;
 
     await AsyncStorage.setItem(CURRENT_USER_KEY, currentUser);
+    await AsyncStorage.setItem(CURRENT_USER_EMAIL_KEY, trimmedEmail);
     router.replace('/(tabs)/registrar-avaria');
   };
 
@@ -94,14 +115,27 @@ export default function AuthScreen() {
             style={styles.input}
             value={email}
           />
-          <TextInput
-            onChangeText={setPassword}
-            placeholder="Senha"
-            placeholderTextColor="#6B7280"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-          />
+          <View style={styles.passwordField}>
+            <TextInput
+              onChangeText={setPassword}
+              placeholder={authMode === 'cadastro' ? 'Senha com no minimo 5 caracteres' : 'Senha'}
+              placeholderTextColor="#6B7280"
+              secureTextEntry={!isPasswordVisible}
+              style={[styles.input, styles.passwordInput]}
+              value={password}
+            />
+            <Pressable
+              accessibilityLabel={isPasswordVisible ? 'Esconder senha' : 'Mostrar senha'}
+              accessibilityRole="button"
+              onPress={() => setIsPasswordVisible((current) => !current)}
+              style={styles.passwordToggle}>
+              <Ionicons
+                name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color="#64748B"
+              />
+            </Pressable>
+          </View>
 
           <Pressable accessibilityRole="button" onPress={handleAuth} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>
@@ -196,6 +230,23 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  passwordField: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
+    top: 0,
+    width: 44,
   },
   primaryButton: {
     alignItems: 'center',
