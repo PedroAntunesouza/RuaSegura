@@ -37,7 +37,7 @@
         "expo-notifications",
         {
           "color": "#0F766E",
-          "defaultChannel": "registros"
+          "defaultChannel": "registros-alertas"
         }
       ],
       [

@@ -45,7 +45,7 @@ const CURRENT_USER_KEY = '@ruasegura:current-user';
 const CURRENT_USER_EMAIL_KEY = '@ruasegura:current-email';
 const DRAFT_PHOTO_KEY = '@ruasegura:draft-photo-uri';
 const DRAFT_LOCATION_KEY = '@ruasegura:draft-location';
-const NOTIFICATION_SHOWN_PREFIX = '@ruasegura:records-reminder-shown:';
+const NOTIFICATION_SHOWN_PREFIX = '@ruasegura:records-reminder-scheduled:v2:';
 
 const DEFAULT_REGION = {
   latitude: -23.55052,
@@ -109,7 +109,6 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      let notificationId: string | undefined;
       let isActive = true;
 
       async function loadDraftFields() {
@@ -138,42 +137,6 @@ export default function HomeScreen() {
         if (currentUser) {
           setAuthor(currentUser);
         }
-      }
-
-      async function scheduleRecordsReminder() {
-        const [currentReports, currentUser] = await Promise.all([
-          getStoredReports(),
-          AsyncStorage.getItem(CURRENT_USER_KEY),
-        ]);
-        const userForNotification = currentUser || 'Morador';
-        const reminderKey = `${NOTIFICATION_SHOWN_PREFIX}${userForNotification}`;
-        const alreadyShown = await AsyncStorage.getItem(reminderKey);
-
-        if (currentReports.length === 0 || alreadyShown === 'true') {
-          return;
-        }
-
-        const canNotify = await ensureNotificationPermission();
-
-        if (!canNotify) {
-          return;
-        }
-
-        await AsyncStorage.setItem(reminderKey, 'true');
-        notificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'RuaSegura',
-            body: 'veja os registros ja feitos',
-            data: { url: '/registros' },
-            priority: Notifications.AndroidNotificationPriority.MAX,
-            sound: true,
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            channelId: 'registros-alertas',
-            seconds: 5,
-          },
-        });
       }
 
       async function loadRegionPreview() {
@@ -212,16 +175,14 @@ export default function HomeScreen() {
         });
       }
 
-      scheduleRecordsReminder();
+      scheduleRecordsReminder().catch((error) => {
+        console.warn('Falha ao agendar lembrete de registros:', error);
+      });
       loadDraftFields();
       loadRegionPreview();
 
       return () => {
         isActive = false;
-
-        if (notificationId) {
-          Notifications.cancelScheduledNotificationAsync(notificationId);
-        }
       };
     }, []),
   );
@@ -287,6 +248,11 @@ export default function HomeScreen() {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([newReport, ...currentReports]));
     setReports([newReport, ...currentReports]);
     await AsyncStorage.multiRemove([DRAFT_PHOTO_KEY, DRAFT_LOCATION_KEY]);
+    try {
+      await scheduleRecordsReminder();
+    } catch (error) {
+      console.warn('Falha ao agendar lembrete de registros:', error);
+    }
     resetReport();
     setSentReport(true);
     setIsRegisteringDamage(false);
@@ -585,6 +551,10 @@ async function getStoredReports() {
 }
 
 async function ensureNotificationPermission() {
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    return false;
+  }
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('registros-alertas', {
       name: 'Registros',
@@ -602,6 +572,42 @@ async function ensureNotificationPermission() {
   }
 
   return finalStatus === 'granted';
+}
+
+async function scheduleRecordsReminder() {
+  const [currentReports, currentUser] = await Promise.all([
+    getStoredReports(),
+    AsyncStorage.getItem(CURRENT_USER_KEY),
+  ]);
+  const userForNotification = currentUser || 'Morador';
+  const reminderKey = `${NOTIFICATION_SHOWN_PREFIX}${userForNotification}`;
+  const alreadyScheduled = await AsyncStorage.getItem(reminderKey);
+
+  if (currentReports.length === 0 || alreadyScheduled === 'true') {
+    return;
+  }
+
+  const canNotify = await ensureNotificationPermission();
+
+  if (!canNotify) {
+    return;
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'RuaSegura',
+      body: 'Veja os registros ja feitos',
+      data: { url: '/registros' },
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      channelId: 'registros-alertas',
+      seconds: 5,
+    },
+  });
+  await AsyncStorage.setItem(reminderKey, 'true');
 }
 
 const styles = StyleSheet.create({
