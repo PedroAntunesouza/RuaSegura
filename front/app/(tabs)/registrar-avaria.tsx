@@ -1,26 +1,26 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Image,
-  InteractionManager,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
 import { useAppTheme } from '@/lib/app-theme';
 import { getReportTitle, getReportsRegion } from '@/lib/damage-reports';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    Image,
+    InteractionManager,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { createReport } from '../../service/api';
 
 type DamageReport = {
@@ -245,7 +245,10 @@ export default function HomeScreen() {
 
   const handleSubmitReport = async () => {
     const currentReports = await getStoredReports();
-    const createdAt = new Date().toISOString();
+    const now = new Date();
+    const createdAt = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, -1);
     const newReport: DamageReport = {
       id: `${Date.now()}`,
       problems: selectedProblems,
